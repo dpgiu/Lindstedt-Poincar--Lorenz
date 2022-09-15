@@ -56,12 +56,12 @@ program lp
   !
   !  dt = 2*pi/N
   
-  N = 777  !1000
-  dt = 2.0_dp * Pi / N
-  w0 = 8.08646_dp !0.8_dp
+  N = 1001
+  dt = 2.0_dp * Pi / (N-1)
+  w0 = 4.031165685315114
   eps = 0.1_dp
   ss = 10.0_dp
-  rr = 350.0_dp
+  rr = 28.0_dp
   bb = 8.0_dp/3.0_dp
   tol_dw = 1e-4
   !max_iter1 = 30 
@@ -85,14 +85,37 @@ program lp
         x0(:,ii) = p_sol0(t)
      end do
   else if (neqs == 3) then
-     nn = N+1
+     nn = N
      allocate(g(neqs, nn))
      t = 0.0_dp
      g = sol0_lorenz(t)
-     do ii = -4, N+4
+     do ii = 1, N !-4, N+4
         t = ii*dt
         tt(ii) = t
+        tt(0) = 0.0_dp
+        !riempio le estensioni periodiche per il tempo
+        tt(-1) = -1.0_dp*dt
+        tt(-2) = -2.0_dp*dt
+        tt(-3) = -3.0_dp*dt
+        tt(-4) = -4.0_dp*dt
+        tt(N+1) = (N+1)*dt
+        tt(N+2) = (N+2)*dt
+        tt(N+3) = (N+3)*dt
+        tt(N+4) = (N+4)*dt
+        
+        !riempio le estensioni periodiche per le coordinate
         x0(:,ii) = g(:,ii)
+        x0(:, 0) = g(:, N-1)
+        x0(:, -1) = g(:, N-2)
+        x0(:, -2) = g(:, N-3)
+        x0(:, -3) = g(:, N-4)
+        x0(:, -4) = g(:, N-5)
+
+        x0(:, N+1) = g(:, 2)
+        x0(:, N+2) = g(:, 3)
+        x0(:, N+3) = g(:, 4)
+        x0(:, N+4) = g(:, 5)
+        
      end do
   end if   
   open(newunit=funit, file="solution0.dat")
@@ -156,6 +179,7 @@ program lp
         error = max(abs(y1(1)), abs(y1(2)))
         if (neqs == 3) then
            error = max(error, abs(y1(3)))
+           error = sqrt(y1(1)*y1(1) + y1(2)*y1(2) + y1(3)*y1(3))
         end if
         !y1 = poly(t)
         !error = abs(y1(1)**2 - y1(2)**2 + 2.0_dp/3.0_dp*y1(2)**3 + cc)
@@ -274,10 +298,11 @@ program lp
      close(funit)
 
      ! estensioni periodiche
-     x0(:,-1) = x0(:,-1) + y(:,N-1) 
-     x0(:,-2) = x0(:,-2) + y(:,N-2)
-     x0(:,-3) = x0(:,-3) + y(:,N-3)
-     x0(:,-4) = x0(:,-4) + y(:,N-4)
+     x0(:, 0) = x0(:, 0) + y(:,N-1)  
+     x0(:,-1) = x0(:,-1) + y(:,N-2) 
+     x0(:,-2) = x0(:,-2) + y(:,N-3)
+     x0(:,-3) = x0(:,-3) + y(:,N-4)
+     x0(:,-4) = x0(:,-4) + y(:,N-5)
 
      x0(:,N+1) = x0(:,N+1) + y(:,1)     
      x0(:,N+2) = x0(:,N+2) + y(:,2)

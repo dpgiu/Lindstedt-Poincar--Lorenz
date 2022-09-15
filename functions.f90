@@ -271,7 +271,7 @@ module functions
     do i = 1, N
        read(222, *)  j, temp, u0(1, i), u0(2, i), u0(3, i)
   
-       print*, u0(2, i) !, u0(2,i), u0(3,i)
+       !print*, u0(2, i) !, u0(2,i), u0(3,i)
     end do
     !forzo la periodicità esatta
     u0(1, N) = u0(1, 1)

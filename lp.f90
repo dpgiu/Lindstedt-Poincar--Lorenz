@@ -93,7 +93,10 @@ program lp
         t = ii*dt
         tt(ii) = t
         tt(0) = 0.0_dp
-        !riempio le estensioni periodiche per il tempo
+        
+     end do
+     
+     !riempio le estensioni periodiche per il tempo
         tt(-1) = -1.0_dp*dt
         tt(-2) = -2.0_dp*dt
         tt(-3) = -3.0_dp*dt
@@ -103,7 +106,7 @@ program lp
         tt(N+3) = (N+3)*dt
         tt(N+4) = (N+4)*dt
         
-        !riempio le estensioni periodiche per le coordinate
+     !riempio le estensioni periodiche per le coordinate
         x0(:,ii) = g(:,ii)
         x0(:, 0) = g(:, N-1)
         x0(:, -1) = g(:, N-2)
@@ -115,8 +118,6 @@ program lp
         x0(:, N+2) = g(:, 3)
         x0(:, N+3) = g(:, 4)
         x0(:, N+4) = g(:, 5)
-        
-     end do
   end if   
   open(newunit=funit, file="solution0.dat")
   do ii = -4, N+4

@@ -260,28 +260,25 @@ module functions
   function sol0_lorenz(t) result(u0)
     real(dp), intent(in) :: t    
     real(dp), allocatable :: u0(:,:)
-    integer :: N = 1001, j
+    integer :: N = 1000, j
     real(dp) :: temp
     
 
-    allocate(u0(3,N))
+    allocate(u0(3,0:N))
 
     open (222, file = 'sol.dat', status = 'old')
    
-    do i = 1, N
+    do i = 0, N
        read(222, *)  j, temp, u0(1, i), u0(2, i), u0(3, i)
-  
-       !print*, u0(2, i) !, u0(2,i), u0(3,i)
     end do
     !forzo la periodicità esatta
-    u0(1, N) = u0(1, 1)
-    u0(2, N) = u0(2, 1)
-    u0(3, N) = u0(3, 1)
-
+    u0(1, N) = u0(1, 0)
+    u0(2, N) = u0(2, 0)
+    u0(3, N) = u0(3, 0)
     
     close(222)
+    print*,u0(:,N)
     
-
   end function sol0_lorenz
 
 

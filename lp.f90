@@ -7,15 +7,18 @@ program lp
   real(dp), parameter :: Pi = 4.0_dp*atan(1.0_dp)
   integer, parameter :: neqs = 3
   real(dp), allocatable :: x0(:,:), y(:,:), z2(:,:), tt(:), g(:,:)
-  real(dp), dimension(neqs) :: M1, M2, M3, M10, M20, M30, y10, y20, y30, y1, y2, y3, y00, fx0, u0, u
+  real(dp), dimension(neqs) :: M1, M2, M3, M10, M20, M30, y10, y20, y30, y1, y2, y3, y00, fx0, u0, u, eig_r, eig_i
   real(dp), dimension(neqs+1) :: B
-  real(dp), allocatable :: M(:,:,:)
+  real(dp), allocatable :: M(:,:,:), M_end(:,:)
   real(dp), dimension(neqs+1, neqs+1) :: A
+  real(dp), dimension(neqs, neqs) :: vl, vr
+  real(dp), dimension(3*neqs) :: work
   real(dp) :: t, dt, error
-  integer :: N, ii, iter1, max_iter1, info, funit, nn
+  integer :: N, ii, jj, iter1, max_iter1, info, funit, nn
   integer, dimension(neqs+1) :: ipv
   real(dp) :: dw_old, tol_dw, max_error
   logical :: is_on_orbit
+  character(1) :: V
   character(2) :: citer 
   character(10) :: arg
 
@@ -76,6 +79,7 @@ program lp
   allocate(z2(neqs,0:N))
   allocate(y(neqs,0:N))
   allocate(M(neqs,neqs,0:N))
+  allocate(M_end(3,3))
   M = 0.0_dp
 
   ! Assumiamo x0 sia nota e periodica. sol0 in functions.f90
@@ -208,13 +212,13 @@ program lp
            M(:,1,ii) = M10(:)
            M(:,2,ii) = M20(:)
            call set_points(tt(ii-2:ii+3), x0(:,ii-2:ii+3))
-           call dopri54(sys0, t, dt, M10, M1, error)
-           call dopri54(sys0, t, dt, M20, M2, error)           
+           call dopri87(sys0, t, dt, M10, M1, error)
+           call dopri87(sys0, t, dt, M20, M2, error)           
            M10 = M1
            M20 = M2
            if (neqs == 3) then
               M(:,3,ii) = M30(:)
-              call dopri54(sys0, t, dt, M30, M3, error)
+              call dopri87(sys0, t, dt, M30, M3, error)
               M30 = M3
            end if
            call clean_points()
@@ -223,8 +227,22 @@ program lp
         M(:,2,N) = M20(:)
         if (neqs == 3) then
            M(:,3,N) = M30(:)
+           !riempio matrice M_end al tempo 2pi per calcolare i suoi autovalori
+           M_end(:,1) = M10(:)
+           M_end(:,2) = M20(:)
+           M_end(:,3) = M30(:)
+           call dgeev('V', 'V', neqs, M_end, neqs, eig_r, eig_i, vl, neqs, vr, neqs, work, -1,info)
+
+           if (info /= 0) then
+              print*, info
+              stop "Error in dgeev"
+           end if
+
         end if
+      
      end if
+
+     write(*,*) 'eig_r=',eig_r, 'eig_i=',eig_i
 
      ! --------------------------------------------------------
      ! Risolvere:  w0 dz2/dt = A z2 + d/dt x0   
@@ -237,7 +255,7 @@ program lp
         t = ii*dt
         z2(:,ii) = y20(:)
         call set_points(tt(ii-2:ii+3), x0(:,ii-2:ii+3)) 
-        call dopri54(sys2, t, dt, y20, y2, error)
+        call dopri87(sys2, t, dt, y20, y2, error)
         y20 = y2
         call clean_points()
      end do
@@ -254,7 +272,7 @@ program lp
         t = ii*dt
         y(:,ii) = y10(:)
         call set_points(tt(ii-2:ii+3), x0(:,ii-2:ii+3))
-        call dopri54(sys1, t, dt, y10, y1, error)
+        call dopri87(sys1, t, dt, y10, y1, error)
         y10 = y1
         call clean_points()
      end do

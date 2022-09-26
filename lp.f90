@@ -7,23 +7,23 @@ program lp
   real(dp), parameter :: Pi = 4.0_dp*atan(1.0_dp)
   integer, parameter :: neqs = 3
   real(dp), allocatable :: x0(:,:), y(:,:), z2(:,:), tt(:), g(:,:)
-  real(dp), dimension(neqs) :: M1, M2, M3, M10, M20, M30, y10, y20, y30, y1, y2, y3, y00, fx0, u0, u, eig_r, eig_i
+  real(dp), dimension(neqs) :: M1, M2, M3, M10, M20, M30, y10, y20, y30, y1, y2, y3, y00, fx0, u0, u
   real(dp), dimension(neqs+1) :: B
-  real(dp), allocatable :: M(:,:,:), M_end(:,:)
+  real(dp), allocatable :: M(:,:,:)
   real(dp), dimension(neqs+1, neqs+1) :: A
-  real(dp), dimension(neqs, neqs) :: vl, vr
+  real(dp), dimension(neqs) :: Wre, Wim
+  real(dp), dimension(neqs, neqs) :: VL, VR
   real(dp), dimension(3*neqs) :: work
   real(dp) :: t, dt, error
-  integer :: N, ii, jj, iter1, max_iter1, info, funit, nn
+  integer :: N, ii, iter1, max_iter1, info, funit, nn
   integer, dimension(neqs+1) :: ipv
-  real(dp) :: dw_old, tol_dw, max_error
+  real(dp) :: T0, dw_old, tol_dw, max_error
   logical :: is_on_orbit
-  character(1) :: V
   character(2) :: citer 
-  character(10) :: arg
+  character(20) :: arg
 
-  if (command_argument_count() < 1) then
-    print*,'lp niter1 sysname is_on_orbit'    
+  if (command_argument_count() < 5) then
+    print*,'lp niter1 N T0 sysname is_on_orbit'    
     stop
   end if
 
@@ -31,6 +31,12 @@ program lp
   read(arg,*) max_iter1
   
   call get_command_argument(2, arg)
+  read(arg,*) N
+
+  call get_command_argument(3, arg)
+  read(arg,*) T0
+
+  call get_command_argument(4, arg)
   if (trim(arg) == "duffing") then
     ff => duffing
     linear_ff => linear_duffing
@@ -47,7 +53,7 @@ program lp
     stop 'ERROR wrong system name'    
   end if
   
-  call get_command_argument(3, arg)
+  call get_command_argument(5,arg)
   read(arg,*) is_on_orbit
 
   print*,is_on_orbit  
@@ -59,10 +65,8 @@ program lp
   !
   !  dt = 2*pi/N
   
-  N = 1000
   dt = 2.0_dp * Pi / N
-  !w0 = 4.031165685315114
-  w0 = 4.031100
+  w0 = 2.0_dp*Pi/T0
   eps = 0.1_dp
   ss = 10.0_dp
   rr = 28.0_dp
@@ -79,7 +83,6 @@ program lp
   allocate(z2(neqs,0:N))
   allocate(y(neqs,0:N))
   allocate(M(neqs,neqs,0:N))
-  allocate(M_end(3,3))
   M = 0.0_dp
 
   ! Assumiamo x0 sia nota e periodica. sol0 in functions.f90
@@ -92,7 +95,7 @@ program lp
   else if (neqs == 3) then
      allocate(g(neqs, 0:N))
      t = 0.0_dp
-     g = sol0_lorenz(t)
+     g = sol0_lorenz(N)
      do ii = 0, N
         t = ii*dt
         tt(ii) = t
@@ -190,7 +193,7 @@ program lp
         end if
         call clean_points()
      end do
-     write(*,*) 'iter:',iter1, 'w=',w0, 'x0=', x0(:,0), 'error=',error
+     write(*,*) 'iter:',iter1, 'T=',2.0_dp*Pi/w0, 'x0=', x0(:,0), 'error=',error
  
      ! --------------------------------------------------------
      ! Risolvere  w0 dM/dt = A M    M(0) = I
@@ -212,13 +215,13 @@ program lp
            M(:,1,ii) = M10(:)
            M(:,2,ii) = M20(:)
            call set_points(tt(ii-2:ii+3), x0(:,ii-2:ii+3))
-           call dopri87(sys0, t, dt, M10, M1, error)
-           call dopri87(sys0, t, dt, M20, M2, error)           
+           call dopri54(sys0, t, dt, M10, M1, error)
+           call dopri54(sys0, t, dt, M20, M2, error)           
            M10 = M1
            M20 = M2
            if (neqs == 3) then
               M(:,3,ii) = M30(:)
-              call dopri87(sys0, t, dt, M30, M3, error)
+              call dopri54(sys0, t, dt, M30, M3, error)
               M30 = M3
            end if
            call clean_points()
@@ -227,22 +230,8 @@ program lp
         M(:,2,N) = M20(:)
         if (neqs == 3) then
            M(:,3,N) = M30(:)
-           !riempio matrice M_end al tempo 2pi per calcolare i suoi autovalori
-           M_end(:,1) = M10(:)
-           M_end(:,2) = M20(:)
-           M_end(:,3) = M30(:)
-           call dgeev('V', 'V', neqs, M_end, neqs, eig_r, eig_i, vl, neqs, vr, neqs, work, -1,info)
-
-           if (info /= 0) then
-              print*, info
-              stop "Error in dgeev"
-           end if
-
         end if
-      
      end if
-
-     write(*,*) 'eig_r=',eig_r, 'eig_i=',eig_i
 
      ! --------------------------------------------------------
      ! Risolvere:  w0 dz2/dt = A z2 + d/dt x0   
@@ -255,7 +244,7 @@ program lp
         t = ii*dt
         z2(:,ii) = y20(:)
         call set_points(tt(ii-2:ii+3), x0(:,ii-2:ii+3)) 
-        call dopri87(sys2, t, dt, y20, y2, error)
+        call dopri54(sys2, t, dt, y20, y2, error)
         y20 = y2
         call clean_points()
      end do
@@ -272,7 +261,7 @@ program lp
         t = ii*dt
         y(:,ii) = y10(:)
         call set_points(tt(ii-2:ii+3), x0(:,ii-2:ii+3))
-        call dopri87(sys1, t, dt, y10, y1, error)
+        call dopri54(sys1, t, dt, y10, y1, error)
         y10 = y1
         call clean_points()
      end do
@@ -327,5 +316,13 @@ program lp
      w0 = w0 + dw
   end do
 
+
+  ! FIND EIGENVALUES OF MONODROMY MATRIX
+  call dgeev('N','N',neqs,M(:,:,N),neqs,Wre,Wim,VL,neqs,VR,neqs,work,3*neqs,info)
+
+  print*,'Eigenvalues of M:'
+  print*,'l1=',Wre(1),Wim(1)
+  print*,'l2=',Wre(2),Wim(2)
+  print*,'l3=',Wre(3),Wim(3)
 
 end program lp

@@ -257,16 +257,16 @@ module functions
 
   end function sol0_duffing
 
-  function sol0_lorenz(t) result(u0)
-    real(dp), intent(in) :: t    
+  function sol0_lorenz(N) result(u0)
+    integer, intent(in) :: N    
     real(dp), allocatable :: u0(:,:)
-    integer :: N = 1000, j
+    integer :: j
     real(dp) :: temp
     
 
     allocate(u0(3,0:N))
 
-    open (222, file = 'sol.dat', status = 'old')
+    open (222, file = 'sol_LR.dat', status = 'old')
    
     do i = 0, N
        read(222, *)  j, temp, u0(1, i), u0(2, i), u0(3, i)
